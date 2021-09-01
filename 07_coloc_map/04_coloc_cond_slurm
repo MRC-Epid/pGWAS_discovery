@@ -1,0 +1,133 @@
+#!/bin/bash
+
+#!#############################################################
+#!#### Modify the options in this section as appropriate ######
+#!#############################################################
+
+#! Name of the job:
+#SBATCH -J coloc_cond_phewas
+
+#! Which project should be charged:
+##SBATCH -A MRC-EPID-SL0-CPU
+#SBATCH -A MRC-EPID-CCLD-SL2-CPU
+
+#! How many whole nodes should be allocated?
+# In your case you should leave this at 1
+#SBATCH --nodes=1
+
+#SBATCH --ntasks=1
+
+#SBATCH --cpus-per-task 10
+
+##SBATCH --exclusive
+
+#SBATCH --exclude=cpu-d-[1-5]
+
+#SBATCH --array=1-10
+
+#! Specify required run time
+#SBATCH --time=72:00:00
+
+#! What types of email messages do you wish to receive?
+#SBATCH --mail-type=FAIL
+
+#SBATCH --output=slurm-%x-%j.out
+
+#! Uncomment this to prevent the job from being requeued (e.g. if
+#! interrupted by node failure or system downtime):
+##SBATCH --no-requeue
+
+#! Do not change:
+##SBATCH -p epid
+#SBATCH -p clincloud
+
+#! ############################################################
+#! Modify the settings below to specify the application's environment, location
+#! and launch method:
+
+#! Optionally modify the environment seen by the application
+#! (note that SLURM reproduces the environment at submission irrespective of ~/.bashrc):
+. /etc/profile.d/modules.sh                # Leave this line (enables the module command)
+module purge                               # Removes all modules still loaded
+module load rhel7/default-peta4            # REQUIRED - loads the basic environment
+
+#! Insert additional module load commands after this line if needed:
+
+module load gcc/5
+module load r-3.6.0-gcc-5.4.0-bzuuksv
+
+## assign directories used for the analysis
+DIR=/home/mdp50/rds/rds-rjh234-mrc-epid/Studies/People/Maik/pGWAS_SomaLogic/14_PheWAS_2
+BGENDIR=/home/mdp50/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/bgen_files/Fenland-OMICS-subset_bgen/
+PHENOFILE=/home/mdp50/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/Post_GWAS/conditional_analysis/Fenland-OMICS_res_invnX_8350.sample
+BGENIX=/home/mdp50/rds/rds-rjh234-mrc-epid/Programs/bgen_tools/bgenix
+
+cd ${DIR}
+
+## get file name
+export FL="input/${1}"
+
+echo ${FL}
+
+## run as array job
+echo "Job ID: $SLURM_ARRAY_TASK_ID"
+pheno="$(awk -v var="$SLURM_ARRAY_TASK_ID" -F '\t' 'NR == var {print $1}' ${FL})"
+chr="$(awk -v var="$SLURM_ARRAY_TASK_ID" -F '\t' 'NR == var {print $2}' ${FL})"
+LOWPOS="$(awk -v var="$SLURM_ARRAY_TASK_ID" -F '\t' 'NR == var {print $3}' ${FL})"
+UPPOS="$(awk -v var="$SLURM_ARRAY_TASK_ID" -F '\t' 'NR == var {print $4}' ${FL})"
+
+
+echo "Phenotype ${pheno} : Chromosome ${chr} : Locus start ${LOWPOS} : Locus end ${UPPOS}"
+
+#------------------------------#
+## --> file for LD-matrix <-- ##
+#------------------------------#
+
+## Create temporary bgen file
+$BGENIX -g ${BGENDIR}/Fenland-OMICS_8350_subset_chr${chr}.bgen -incl-range ${chr}:${LOWPOS}-${UPPOS} > ${DIR}/tmp_input/${pheno}.${chr}.${LOWPOS}.${UPPOS}.bgen
+
+## convert to dosage file
+~/rds/rds-rjh234-mrc-epid/Programs/qctool_v2.0.2/qctool_v2.0.2 \
+-g ${DIR}/tmp_input/${pheno}.${chr}.${LOWPOS}.${UPPOS}.bgen \
+-s /home/mdp50/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/bgen_files/Fenland-OMICS-subset_bgen/Fenland-OMICS_8350_subset.sample \
+-og - \
+-ofiletype dosage > tmp_input/tmp.${pheno}.${chr}.${LOWPOS}.${UPPOS}.dosage
+
+#------------------------------#
+## --> 	  cond. stats     <-- ##
+#------------------------------#
+
+## create conditional stats using GCTA
+## define width and middle for the analysis
+export MID=$(($LOWPOS + ($UPPOS - $LOWPOS)/2))
+## careful some of the secondary sginals are more than 500kb away --> increase margins to 1MB
+export WID=$((((${UPPOS} - ${LOWPOS})/1000)/2))
+
+## create input for GCTA
+zcat ~/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/Meta-Analysis/Fenland_auto_chrX_filtered/output/${pheno}_Fenland_MA_auto_chrX_filtered.txt.gz | cut -d$'\t' -f2-5,9-11,17 > input_cond/${pheno}.${chr}.${LOWPOS}.${UPPOS}.ma
+
+
+## run GCTA to create conditional statistics (allow for some minor variations in the MAF)
+/home/mdp50/rds/rds-rjh234-mrc-epid/Programs/GCTA/gcta_1.92.0beta3/gcta64 \
+--bfile /home/mdp50/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/Fenland-OMICS_plinkformat/Fenland-OMICS_plinkformat_chr${chr} \
+--chr ${chr} \
+--maf 0.008 \
+--cojo-file input_cond/${pheno}.${chr}.${LOWPOS}.${UPPOS}.ma \
+--cojo-cond input_cond/cond.${pheno}.${chr}.${LOWPOS}.${UPPOS}.txt \
+--cojo-collinear 0.1 \
+--cojo-actual-geno \
+--out input_cond/${pheno}.${chr}.${LOWPOS}.${UPPOS} \
+--extract-region-bp ${chr} ${MID} ${WID}
+
+#------------------------------#
+## -->      run coloc     <-- ##
+#------------------------------#
+
+## run simple coloc with original association statistics
+scripts/05_cond_coloc_PheWAS.R ${pheno} ${chr} ${LOWPOS} ${UPPOS}
+
+## clean up the space
+rm input_cond/${pheno}.*	
+rm tmp_input/${pheno}.${chr}.${LOWPOS}.${UPPOS}.bgen
+rm tmp_input/tmp.${pheno}.${chr}.${LOWPOS}.${UPPOS}.dosage
+

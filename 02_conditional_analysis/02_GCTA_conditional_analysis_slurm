@@ -1,0 +1,94 @@
+#!/bin/bash
+#!
+
+## script to perform conditional analysis using GCTA
+# Submit jobs
+# while IFS= read -r line; do sbatch scripts/02_GCTA_conditional_analysis_slurm $line; done < input/
+
+
+#!#############################################################
+#!#### Modify the options in this section as appropriate ######
+#!#############################################################
+
+#! Name of the job:
+#SBATCH -J GCTA_conditional
+
+#! Which project should be charged:
+#SBATCH -A MRC-EPID-CCLD-SL2-CPU
+
+#! How many whole nodes should be allocated?
+# In your case you should leave this at 1
+#SBATCH --nodes=1
+
+#SBATCH --ntasks=1
+
+#SBATCH --exclude=cpu-d-[25-30]
+
+#SBATCH --cpus-per-task 3
+
+#! Specify required run time
+#SBATCH --time=1:00:00
+
+#! What types of email messages do you wish to receive?
+#SBATCH --mail-type=FAIL
+
+#! Uncomment this to prevent the job from being requeued (e.g. if
+#! interrupted by node failure or system downtime):
+##SBATCH --no-requeue
+
+#! Do not change:
+#SBATCH -p clincloud
+
+#! ############################################################
+#! Modify the settings below to specify the application's environment, location 
+#! and launch method:
+
+#! Optionally modify the environment seen by the application
+#! (note that SLURM reproduces the environment at submission irrespective of ~/.bashrc):
+. /etc/profile.d/modules.sh                # Leave this line (enables the module command)
+module purge                               # Removes all modules still loaded
+module load rhel7/default-peta4            # REQUIRED - loads the basic environment
+
+#! Insert additional module load commands after this line if needed:
+
+module load gcc/5
+
+## create variables to be used
+export SL=${1}
+export CHR=${2}
+export LOWPOS=${3}
+export UPPOS=${4}
+## some variables to define the region 
+export MID=$((${LOWPOS} + (${UPPOS} - ${LOWPOS})/2))
+### windoww in kB
+export WID=$((((${UPPOS} - ${LOWPOS})/1000)/2))
+
+echo -e "doing conditional analysis for ${SL} on chromosome ${CHR} around ${MID} with window ${WID}kB \n"
+
+## choose directory
+cd /home/mdp50/rds/rds-rjh234-mrc-epid/Studies/People/Maik/pGWAS_SomaLogic/01_conditional_analysis
+
+##-- conditional variants for SOMAscan and Olink data --##
+
+## reformat summary stats
+zcat ~/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/Meta-Analysis/Fenland_auto_chrX_filtered/output/${SL}_Fenland_MA_auto_chrX_filtered.txt.gz | cut -d$'\t' -f2-5,9-11,17 > input/${SL}.${CHR}.${LOWPOS}.${UPPOS}.ma
+
+## apply conditional analysis
+/home/mdp50/rds/rds-rjh234-mrc-epid/Programs/GCTA/gcta_1.92.0beta3/gcta64 \
+--bfile /home/mdp50/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/Fenland-OMICS_plinkformat/Fenland-OMICS_plinkformat_chr${CHR} \
+--chr ${CHR} \
+--maf 0.01 \
+--cojo-file input/${SL}.${CHR}.${LOWPOS}.${UPPOS}.ma \
+--out output/cond_hits.${SL}.${CHR}.${LOWPOS}.${UPPOS} \
+--extract-region-bp ${CHR} ${MID} ${WID} \
+--cojo-actual-geno \
+--cojo-slct \
+--cojo-p 1e-11 \
+--cojo-collinear 0.1
+
+## remove files not needed
+rm input/${SL}.${CHR}.${LOWPOS}.${UPPOS}.ma
+
+
+
+

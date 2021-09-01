@@ -1,0 +1,81 @@
+#!/bin/bash
+#!
+
+## script to look up variants in GTEx files
+
+#!#############################################################
+#!#### Modify the options in this section as appropriate ######
+#!#############################################################
+
+#! Name of the job:
+#SBATCH -J look-up-eQTLs
+
+#! Which project should be charged:
+#SBATCH -A MRC-EPID-SL0-CPU
+##SBATCH -A MRC-EPID-CCLD-SL2-CPU
+
+#! How many whole nodes should be allocated?
+# In your case you should leave this at 1
+#SBATCH --nodes=1
+
+#SBATCH --ntasks=1
+
+#SBATCH --array=1-9999
+
+#SBATCH --cpus-per-task 3
+
+## restrict the number of nodes to be used (maximum of 30)
+#SBATCH --exclude=cpu-d-[25-30]
+
+#! Specify required run time
+#SBATCH --time=72:00:00
+
+#! What types of email messages do you wish to receive?
+#SBATCH --mail-type=FAIL
+
+#! Uncomment this to prevent the job from being requeued (e.g. if
+#! interrupted by node failure or system downtime):
+##SBATCH --no-requeue
+
+#! Do not change:
+#SBATCH -p epid
+##SBATCH -p clincloud
+
+#! ############################################################
+#! Modify the settings below to specify the application's environment, location 
+#! and launch method:
+
+#! Optionally modify the environment seen by the application
+#! (note that SLURM reproduces the environment at submission irrespective of ~/.bashrc):
+. /etc/profile.d/modules.sh                # Leave this line (enables the module command)
+module purge                               # Removes all modules still loaded
+module load rhel7/default-peta4            # REQUIRED - loads the basic environment
+
+#! Insert additional module load commands after this line if needed:
+
+module load gcc/5
+
+## assign directories used for the analysis
+DIR=/home/mdp50/rds/rds-rjh234-mrc-epid/Studies/People/Maik/pGWAS_SomaLogic/15_GTEx
+
+cd ${DIR}
+
+## get file name
+export FL="data/${1}"
+
+echo ${FL}
+
+## run as array job
+echo "Job ID: $SLURM_ARRAY_TASK_ID"
+chr="$(awk -v var="$SLURM_ARRAY_TASK_ID" -F '\t' 'NR == var {print $1}' ${FL})"
+snp="$(awk -v var="$SLURM_ARRAY_TASK_ID" -F '\t' 'NR == var {print $2}' ${FL})"
+gene="$(awk -v var="$SLURM_ARRAY_TASK_ID" -F '\t' 'NR == var {print $3}' ${FL})"
+tissue="$(awk -v var="$SLURM_ARRAY_TASK_ID" -F '\t' 'NR == var {print $6}' ${FL})"
+
+## export variables
+export SFILE=~/rds/rds-rjh234-cc-mrc-epid/People/Ellie/GTEx_v8_download/GTEx_Analysis_v8_EUR_eQTL_all_associations_csv/
+echo "Do look-up for ${snp} for ${gene} in ${tissue}"
+
+## look up SNP in SOMAscan data
+grep ${gene} ${SFILE}/${tissue}.v8.EUR.allpairs.chr${chr}.csv | grep -w ${snp} - > tissue_lookup/${tissue}.${snp}.${gene}.lookup
+
