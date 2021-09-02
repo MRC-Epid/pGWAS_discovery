@@ -1,0 +1,71 @@
+#!/bin/bash
+#!
+#!#############################################################
+#!#### Modify the options in this section as appropriate ######
+#!#############################################################
+
+###
+### while read pheno; do sbatch 02_07_SBATCH_chrX ${pheno}; done < /home/ew248/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/phenotypelist_4979.txt
+###
+
+#! Name of the job:
+#SBATCH -J CHRX
+
+#! Which project should be charged:
+#SBATCH -A MRC-EPID-SL0-CPU
+
+#! How many whole nodes should be allocated?
+# In your case you should leave this at 1
+#SBATCH --nodes=1
+
+#SBATCH --ntasks=1
+
+#SBATCH --cpus-per-task 2
+
+#! Specify required run time
+#SBATCH --time=100:00:00
+
+#SBATCH --output=slurm-%x-%j.out
+
+#! What types of email messages do you wish to receive?
+#SBATCH --mail-type=FAIL
+
+#! Uncomment this to prevent the job from being requeued (e.g. if
+#! interrupted by node failure or system downtime):
+##SBATCH --no-requeue
+
+#! Do not change:
+#SBATCH -p epid
+
+#! ############################################################
+#! Modify the settings below to specify the application's environment, location
+#! and launch method:
+
+#! Optionally modify the environment seen by the application
+#! (note that SLURM reproduces the environment at submission irrespective of ~/.bashrc):
+. /etc/profile.d/modules.sh                # Leave this line (enables the module command)
+module purge                               # Removes all modules still loaded
+module load rhel7/default-peta4
+
+#! Insert additional module load commands after this line if needed:
+#! ############################################################
+
+
+export pheno=${1}
+chr=23
+echo "Chromosome... " ${chr}
+
+#Make directory for chromosome X
+cd /home/ew248/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/bgenie1.3/Fenland-OMICS/output/formatted/
+#mkdir combined_chrX
+
+i=$(grep -n $pheno /home/ew248/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/phenotypelist_4979.txt | perl -pe 's{:}{\t}g' | cut -f1)
+echo ${i} ${pheno}
+start=$(( 8+(4*(${i}-1)) ))
+end=$(( 8+(4*(${i}-1))+3 ))
+zcat ../OMICS_Phase1_res_invnX_chr${chr}.out.gz | cut -f 1-7,${start}-${end} -d\   |  awk '{if(NR==1) {$(NF+1)="N"; $(NF+1)="MarkerName"; print $0} else if($5<$4 && NR > 1){$(NF+1)=8350; $(NF+1)="chr"$1":"$3"_"$5"_"$4; print $0} else if($5>$4 && NR>1) {$(NF+1)=8350; $(NF+1)="chr"$1":"$3"_"$4"_"$5; print $0} }' OFS="\t" | gzip > combined_chrX/${pheno}_chrX_forMA.gz
+zgrep $ combined_chrX/${pheno}_chrX_forMA.gz | wc -l
+
+echo "Done."
+
+

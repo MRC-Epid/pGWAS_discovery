@@ -1,0 +1,69 @@
+#!/bin/bash
+#!
+#!#############################################################
+#!#### Modify the options in this section as appropriate ######
+#!#############################################################
+
+#! Name of the job:
+#SBATCH -J BGENIE
+
+#! Which project should be charged:
+#SBATCH -A MRC-EPID-SL0-CPU
+
+#! How many whole nodes should be allocated?
+# In your case you should leave this at 1
+#SBATCH --nodes=1
+
+#SBATCH --ntasks=1
+
+#SBATCH --cpus-per-task 20
+
+#! Specify required run time
+#SBATCH --time=100:00:00
+
+#! What types of email messages do you wish to receive?
+#SBATCH --mail-type=FAIL
+
+#! Uncomment this to prevent the job from being requeued (e.g. if
+#! interrupted by node failure or system downtime):
+##SBATCH --no-requeue
+
+#! Do not change:
+#SBATCH -p epid
+
+#! ############################################################
+#! Modify the settings below to specify the application's environment, location 
+#! and launch method:
+
+#! Optionally modify the environment seen by the application
+#! (note that SLURM reproduces the environment at submission irrespective of ~/.bashrc):
+. /etc/profile.d/modules.sh                # Leave this line (enables the module command)
+module purge                               # Removes all modules still loaded
+module load rhel7/default-peta4  
+
+#! Insert additional module load commands after this line if needed:
+
+module load gcc/5.3.0
+
+#IMPUTATION=Fenland-OMICS, Fenland-Corexome or Fenland-GWAS
+export IMPUTATION=${1}
+export N=${2}
+export PHENO=${3}
+export CHR=${4}
+
+export OMP_NUM_THREADS=20
+
+cd /home/ew248/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/bgenie1.3
+
+#GWAS analysis
+
+bgenie_v1.3_static1 \
+--bgen  /home/ew248/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/bgen_files/${IMPUTATION}-subset_bgen/${IMPUTATION}_${N}_subset_chr${CHR}.bgen \
+--pheno ${IMPUTATION}/input/${PHENO}.pheno \
+--out ${IMPUTATION}/output/${PHENO}_chr${CHR}.out \
+--pvals \
+--thread 20 > ${IMPUTATION}/output/${PHENO}_chr${CHR}.log
+
+
+
+

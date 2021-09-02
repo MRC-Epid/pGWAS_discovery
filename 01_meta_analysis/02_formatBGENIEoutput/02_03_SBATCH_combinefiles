@@ -1,0 +1,69 @@
+#!/bin/bash
+#!
+#!#############################################################
+#!#### Modify the options in this section as appropriate ######
+#!#############################################################
+
+###
+### To run: while read pheno; do echo ${pheno}; sbatch 02_03_SBATCH_combinefiles ${pheno}; done < /home/ew248/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/phenotypelist_4979.txt
+###
+
+#! Name of the job:
+#SBATCH -J COMBINEFILES
+
+#! Which project should be charged:
+#SBATCH -A MRC-EPID-SL0-CPU
+
+#! How many whole nodes should be allocated?
+# In your case you should leave this at 1
+#SBATCH --nodes=1
+
+#SBATCH --ntasks=1
+
+#SBATCH --cpus-per-task 2
+
+#SBATCH --output=slurm-%x-%j.out
+
+#! Specify required run time
+#SBATCH --time=100:00:00
+
+#! What types of email messages do you wish to receive?
+#SBATCH --mail-type=FAIL
+
+#! Uncomment this to prevent the job from being requeued (e.g. if
+#! interrupted by node failure or system downtime):
+##SBATCH --no-requeue
+
+#! Do not change:
+#SBATCH -p epid
+
+#! ############################################################
+#! Modify the settings below to specify the application's environment, location
+#! and launch method:
+
+#! Optionally modify the environment seen by the application
+#! (note that SLURM reproduces the environment at submission irrespective of ~/.bashrc):
+. /etc/profile.d/modules.sh                # Leave this line (enables the module command)
+module purge                               # Removes all modules still loaded
+module load rhel7/default-peta4
+
+#! Insert additional module load commands after this line if needed:
+#! ############################################################
+
+
+mkdir combined
+
+export pheno=${1}
+
+cd /home/ew248/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/bgenie1.3/Fenland-OMICS/output/formatted
+
+for chr in {1..22}; do
+	for part in $(ls -1 chr${chr}/splitparts/${pheno}_chr${chr}_part* | perl -pe 's{\_part}{\t}g' | perl -pe 's{.txt.gz}{}g' |  cut -f2); do
+	echo ${chr} ${part}
+	cat chr${chr}/splitparts/${pheno}_chr${chr}_part${part}.txt.gz  >> combined/$pheno.out.gz
+	done
+done
+
+echo "Done."
+
+

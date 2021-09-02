@@ -1,0 +1,70 @@
+#!/bin/bash
+#!
+#!#############################################################
+#!#### Modify the options in this section as appropriate ######
+#!#############################################################
+
+###
+### while read pheno; do echo ${pheno}; sbatch 03_03_SBATCH_gzip ${pheno}; done < /home/ew248/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/phenotypelist_4979.txt
+###
+
+#! Name of the job:
+#SBATCH -J GZIP
+
+#! Which project should be charged:
+#SBATCH -A MRC-EPID-SL0-CPU
+
+#! How many whole nodes should be allocated?
+# In your case you should leave this at 1
+#SBATCH --nodes=1
+
+#SBATCH --ntasks=1
+
+#SBATCH --cpus-per-task 2
+
+#SBATCH --output=slurm-%x-%j.out
+
+#! Specify required run time
+#SBATCH --time=100:00:00
+
+#! What types of email messages do you wish to receive?
+#SBATCH --mail-type=FAIL
+
+#! Uncomment this to prevent the job from being requeued (e.g. if
+#! interrupted by node failure or system downtime):
+##SBATCH --no-requeue
+
+#! Do not change:
+#SBATCH -p epid
+
+#! ############################################################
+#! Modify the settings below to specify the application's environment, location
+#! and launch method:
+
+#! Optionally modify the environment seen by the application
+#! (note that SLURM reproduces the environment at submission irrespective of ~/.bashrc):
+. /etc/profile.d/modules.sh                # Leave this line (enables the module command)
+module purge                               # Removes all modules still loaded
+module load rhel7/default-peta4
+
+#! Insert additional module load commands after this line if needed:
+#! ############################################################
+
+
+## Compress output files
+
+export pheno=${1}
+
+echo ${pheno}
+
+cd /home/ew248/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/Meta-Analysis/Fenland/${pheno}
+
+gzip ${pheno}_METAANALYSIS_Fenland-OMICS-Corexome-GWAS_1.tbl
+
+echo "Done."
+
+
+
+
+
+

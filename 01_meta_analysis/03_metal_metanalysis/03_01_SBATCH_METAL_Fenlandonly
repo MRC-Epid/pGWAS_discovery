@@ -1,0 +1,74 @@
+#!/bin/bash
+#!
+#!#############################################################
+#!#### Modify the options in this section as appropriate ######
+#!#############################################################
+
+###
+### while read pheno; do echo ${pheno}; sbatch 03_01_SBATCH_METAL_Fenlandonly ${pheno}; done < /home/ew248/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/phenotypelist_4979.txt
+###
+
+#! Name of the job:
+#SBATCH -J METAL
+
+#! Which project should be charged:
+#SBATCH -A MRC-EPID-SL0-CPU
+
+#! How many whole nodes should be allocated?
+# In your case you should leave this at 1
+#SBATCH --nodes=1
+
+#SBATCH --ntasks=1
+
+#SBATCH --cpus-per-task 2
+
+#SBATCH --output=slurm-%x-%j.out
+
+#! Specify required run time
+#SBATCH --time=100:00:00
+
+#! What types of email messages do you wish to receive?
+#SBATCH --mail-type=FAIL
+
+#! Uncomment this to prevent the job from being requeued (e.g. if
+#! interrupted by node failure or system downtime):
+##SBATCH --no-requeue
+
+#! Do not change:
+#SBATCH -p epid
+
+#! ############################################################
+#! Modify the settings below to specify the application's environment, location
+#! and launch method:
+
+#! Optionally modify the environment seen by the application
+#! (note that SLURM reproduces the environment at submission irrespective of ~/.bashrc):
+. /etc/profile.d/modules.sh                # Leave this line (enables the module command)
+module purge                               # Removes all modules still loaded
+module load rhel7/default-peta4
+
+#! Insert additional module load commands after this line if needed:
+#! ############################################################
+
+
+export pheno=${1}
+
+mkdir ${pheno}
+
+echo ${pheno}
+
+cd /home/ew248/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/Meta-Analysis/Fenland/
+
+sed "s|PHENO|${pheno}|g" 03_02_METAL_script_PHENO.txt > ${pheno}/03_02_METAL_script_${pheno}.txt
+
+cd ${pheno}
+
+/home/ew248/rds/rds-rjh234-mrc-epid/Programs/METAL/metal 03_02_METAL_script_${pheno}.txt > 03_02_METAL_script_${pheno}.log
+
+echo "Done."
+
+
+
+
+
+

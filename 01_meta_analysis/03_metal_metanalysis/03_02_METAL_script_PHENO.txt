@@ -1,0 +1,24 @@
+SEPARATOR  WHITESPACE
+SCHEME STDERR
+
+MARKER  MarkerName
+ALLELE  a_1 a_0
+FREQ af
+EFFECT  PHENO_beta
+STDERR  PHENO_se
+
+AVERAGEFREQ ON
+MINMAXFREQ ON
+
+CUSTOMVARIABLE TotalSampleSize
+LABEL TotalSampleSize as N
+
+PROCESS /home/ew248/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/bgenie1.3/Fenland-OMICS/output/formatted/combined/PHENO_forMA.gz
+PROCESS /home/ew248/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/bgenie1.3/Fenland-Corexome/output/formatted/combined/PHENO_forMA.gz
+PROCESS /home/ew248/rds/rds-rjh234-mrc-epid/Studies/People/Ellie/SomaLogic/GWAS_discovery_subsets/bgenie1.3/Fenland-GWAS/output/formatted/combined/PHENO_forMA.gz
+
+OUTFILE PHENO_METAANALYSIS_Fenland-OMICS-Corexome-GWAS_ .tbl
+ANALYZE HETEROGENEITY
+
+QUIT
+
